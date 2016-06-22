@@ -1,4 +1,7 @@
 #!/bin/bash
+# This script helps to determine the kind of web site in a
+# folder of web sites
+
 if [ $# -ne 1 ]
 then
         echo "Usage: ./cms.sh <path> (f.e.: >./cms.sh /var/www)"
