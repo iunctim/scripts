@@ -10,11 +10,11 @@ fi
 
 path=$1
 
-BLUE='\033[0;34m'
-PURPLE='\033[0;35m'
-BROWN='\033[0;33m'
-RED='\033[1;31m'
-NC='\033[0m' # No Color
+BLUE=$'\033[0;34m'
+PURPLE=$'\033[0;35m'
+BROWN=$'\033[0;33m'
+RED=$'\033[1;31m'
+NC=$'\033[0m' # No Color
 
 
 # '' = right-align , '-' = left-align
@@ -32,7 +32,16 @@ repeat() {
 for dir in ${path}/*; do
 	[ -d "${dir}" ] || continue	
 
-	dirname=$(basename ${dir})	
+	dirname=$(basename ${dir})
+	cms=""
+	
+	onlinestatus="N/A"
+	#check onlinestatus with checkVHost.sh 
+	if [ -f "./checkVHost.sh" ]; then
+		onlinestatus=$( ./checkVHost.sh ${dir} )
+	fi
+	
+	color=$RED
 
 	#check for typo3
     if [[ -n $(find ${dir} -maxdepth 0 -type d -exec test -e "{}/typo3" ';' -print) ]]; then 
@@ -42,15 +51,12 @@ for dir in ${path}/*; do
 		if [ -f "./typo3vers.sh" ]; then
 			version=$( ./typo3vers.sh ${dir} )
 		fi
-
-		printf "%${ALIGN}${INDENT}s \t\t\t ${PURPLE}TYPO3 ($version) ${NC}\n" ${dirname}	
-		repeat "-" "${INDENT}"
-
-		continue
-	fi
-
+		
+		cms="TYPO3 ($version)"
+		color=$PURPLE
+		
 	#check for magento
-	if [[ -n $(find ${dir} -maxdepth 0 -type d -exec test -e "{}/app" ';' -print) ]]; then 
+	elif [[ -n $(find ${dir} -maxdepth 0 -type d -exec test -e "{}/app" ';' -print) ]]; then 
 
 		version=""
 		#check the magento version, with magentovers.sh
@@ -58,14 +64,11 @@ for dir in ${path}/*; do
 			version=$( ./magentovers.sh ${dir} )
 		fi
 
-		printf "%${ALIGN}${INDENT}s \t\t\t ${BROWN}MAGENTO ($version) ${NC}\n" ${dirname}	
-		repeat "-" "${INDENT}"
-
-		continue
-	fi
+		cms="MAGENTO ($version)"
+		color=$BROWN
 
 	#check for wordpress
-	if [[ -n $(find ${dir} -maxdepth 0 -type d -exec test -e "{}/wp-includes" ';' -print) ]]; then 
+	elif [[ -n $(find ${dir} -maxdepth 0 -type d -exec test -e "{}/wp-includes" ';' -print) ]]; then 
 
 		version=""
 		#check the wordpress version, with wordpressvers.sh
@@ -73,14 +76,17 @@ for dir in ${path}/*; do
 			version=$( ./wordpressvers.sh ${dir} )
 		fi
 
-		printf "%${ALIGN}${INDENT}s \t\t\t ${BLUE}WORDPRESS ($version) ${NC}\n" ${dirname}
-		repeat "-" "${INDENT}"
-
-		continue
-	fi
+		cms="WORDPRESS ($version)"
+		color=$BLUE
 
 	#else it is static HTML
-	printf "%${ALIGN}${INDENT}s \t\t\t ${RED}STATIC${NC}\n" ${dirname}	
+	else
+
+		cms="STATIC"
+
+	fi
+
+	printf "%${ALIGN}${INDENT}s \t\t\t %s %-30s %s \t\t %-15s \n" "${dirname}" "$color" "${cms}" "$NC" "${onlinestatus}" 
 	repeat "-" "${INDENT}"
 
 done
