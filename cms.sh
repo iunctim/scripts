@@ -14,7 +14,11 @@ BLUE=$'\033[0;34m'
 PURPLE=$'\033[0;35m'
 BROWN=$'\033[0;33m'
 RED=$'\033[1;31m'
+WHITE=$'\e[97m'
 NC=$'\033[0m' # No Color
+
+#background color
+BG_RED=$'\e[41m'
 
 
 # '' = right-align , '-' = left-align
@@ -29,6 +33,21 @@ repeat() {
  echo "${v// /${str}}"
 }
 
+#check if there any subdirectories at all and get the count
+vhostCnt=$(find $path -mindepth 1 -maxdepth 1 -type d | wc -l)
+onlineCnt="0"
+offlineCnt="0"
+inactiveCnt="0"
+
+if [ "$vhostCnt" -le "0" ]; then
+	echo "No subdirectories with containing vhosts in this directory!"
+	exit
+fi
+
+
+printf "%s%s%${ALIGN}${INDENT}s \t\t\t %-30s \t\t %-15s %s \n" "${BG_RED}" "${WHITE}" "Web Site" "Version" "Status" "${NC}" 
+repeat "-" "${INDENT}"
+
 for dir in ${path}/*; do
 	[ -d "${dir}" ] || continue	
 
@@ -39,6 +58,18 @@ for dir in ${path}/*; do
 	#check onlinestatus with checkVHost.sh 
 	if [ -f "./checkVHost.sh" ]; then
 		onlinestatus=$( ./checkVHost.sh ${dir} )
+
+		case "$?" in 
+		
+				0) ((onlineCnt=onlineCnt + 1)) 
+					;;
+				1) ((inactiveCnt=inactiveCnt + 1)) 
+					;;
+				2) ((offlineCnt=offlineCnt + 1)) 
+					;;
+				*)  ;;
+
+		esac
 	fi
 	
 	color=$RED
@@ -91,4 +122,8 @@ for dir in ${path}/*; do
 
 done
 
+printf "\n%-s VHosts found!\n" "${vhostCnt}"
+printf "\n%-s VHosts online\n" "${onlineCnt}"
+printf "\n%-s VHosts inactive\n" "${inactiveCnt}"
+printf "\n%-s VHosts offline\n" "${offlineCnt}"
 

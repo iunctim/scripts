@@ -14,7 +14,7 @@ vhost=$(fgrep -lr "${path}" /etc/apache2/sites-enabled | head -n1)
 
 if [[ -z $vhost ]]; then
 	echo "NO ACTIVE VHOST"	
-	exit
+	exit 1
 fi
 
 domain=$(cat $vhost | grep "ServerName" | awk -F' ' '{print $2}' | head -n1)
@@ -26,9 +26,9 @@ serverips=$(ifconfig | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '(
 while read -r ip; do
 	if [ "${ip}" = "${domainip}"  ];then
 		echo "ONLINE"
-		exit
+		exit 0
 	fi
 done <<< "$serverips"
 
 echo "OFFLINE"
-exit
+exit 2
