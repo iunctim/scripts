@@ -1,5 +1,5 @@
 #!/bin/bash
-# This script helps to determine the version of a magento version 
+# This script helps to determine the version of a magento web site 
 
 if [ $# -ne 1 ]
 then

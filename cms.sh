@@ -44,7 +44,7 @@ for dir in ${path}/*; do
 	color=$RED
 
 	#check for typo3
-    if [[ -n $(find ${dir} -maxdepth 0 -type d -exec test -e "{}/typo3" ';' -print) ]]; then 
+	if [[ -n $(find ${dir} -maxdepth 0 -type d -exec test -e "{}/typo3" ';' -print) ]]; then 
 
 		version=""
 		#check the typo3 version, with typo3vers.sh
