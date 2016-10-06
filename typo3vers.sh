@@ -9,6 +9,11 @@ fi
 
 path=$1
 
+if [ ! -f "${path}/typo3_src/ChangeLog" ];then 
+   echo "NO VERSION FOUND"
+   exit 1
+fi
+
 str=$( cat ${path}/typo3_src/ChangeLog | grep 'RELEASE' | head -n1 )  
 regex='TYPO3 ([A-Z0-9.]+) '
 
@@ -20,5 +25,6 @@ if [[ -n $version ]]; then
 	echo "$version"
 else 
 	echo "NO VERSION FOUND"
+   exit 1
 fi
 

@@ -2,11 +2,24 @@
 # This script helps to determine the kind of web site in a
 # folder of web sites
 
-if [ $# -ne 1 ]
+if [ $# -gt 2 ]
 then
         echo "Usage: ./cms.sh <path> (f.e.: >./cms.sh /var/www)"
    exit 1
 fi
+
+option=""
+while getopts ":a" opt; do
+   case $opt in
+      a)
+         option="a" 
+      ;;
+      \?)
+      ;;
+   esac
+done
+
+shift $((OPTIND - 1))
 
 path=$1
 
@@ -24,7 +37,7 @@ BG_RED=$'\e[41m'
 # '' = right-align , '-' = left-align
 ALIGN='-'
 #width of the first column
-INDENT='60'
+INDENT='40'
 
 repeat() {
  str=$1
@@ -44,20 +57,28 @@ if [ "$vhostCnt" -le "0" ]; then
 	exit
 fi
 
+if [[ -z $option ]]; then
+   printf "%s%s%${ALIGN}${INDENT}s \t\t\t %-30s \t\t %-15s \t\t %-15s \t\t %-15s \t\t %-15s %s \n" "${BG_RED}" "${WHITE}" "Web Site" "Version" "Status" "IP" "HTTP" "Url" "${NC}" 
+   repeat "-" "${INDENT}"
+else
+   echo "Website;Version;Status;HTTP;Url" 
+fi
 
-printf "%s%s%${ALIGN}${INDENT}s \t\t\t %-30s \t\t %-15s %s \n" "${BG_RED}" "${WHITE}" "Web Site" "Version" "Status" "${NC}" 
-repeat "-" "${INDENT}"
-
-for dir in ${path}/*; do
+for dir in ${path}*; do
 	[ -d "${dir}" ] || continue	
 
 	dirname=$(basename ${dir})
 	cms=""
 	
 	onlinestatus="N/A"
+	httpcode="000"
+	url=""
 	#check onlinestatus with checkVHost.sh 
 	if [ -f "./checkVHost.sh" ]; then
-		onlinestatus=$( ./checkVHost.sh ${dir} )
+		httpcode=$( ./checkVHost.sh -b ${dir} )
+		url=$( ./checkVHost.sh -c ${dir} )
+		ip=$( ./checkVHost.sh -d ${dir} )
+		onlinestatus=$( ./checkVHost.sh -a ${dir} )
 
 		case "$?" in 
 		
@@ -117,13 +138,18 @@ for dir in ${path}/*; do
 
 	fi
 
-	printf "%${ALIGN}${INDENT}s \t\t\t %s %-30s %s \t\t %-15s \n" "${dirname}" "$color" "${cms}" "$NC" "${onlinestatus}" 
-	repeat "-" "${INDENT}"
+   if [[ -z $option ]]; then
+      printf "%${ALIGN}${INDENT}s \t\t\t %s %-20s %s \t\t %-15s \t\t %-15s \t\t %-15s \t\t %-15s \n" "${dirname}" "$color" "${cms}" "$NC" "${ip}" "${onlinestatus}" "${httpcode}" "${url}"
+      repeat "-" "${INDENT}"
+   else
+      echo "${dirname};${cms};${onlinestatus};${ip};${httpcode};${url};" 
+   fi
 
 done
 
-printf "\n%-s VHosts found!\n" "${vhostCnt}"
-printf "\n%-s VHosts online\n" "${onlineCnt}"
-printf "\n%-s VHosts inactive\n" "${inactiveCnt}"
-printf "\n%-s VHosts offline\n" "${offlineCnt}"
-
+if [[ -z $option ]]; then
+   printf "\n%-s VHosts found!\n" "${vhostCnt}"
+   printf "\n%-s VHosts online\n" "${onlineCnt}"
+   printf "\n%-s VHosts inactive\n" "${inactiveCnt}"
+   printf "\n%-s VHosts offline\n" "${offlineCnt}"
+fi

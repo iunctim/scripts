@@ -9,6 +9,11 @@ fi
 
 path=$1
 
+if [[ ! -x "${path}/mage" ]];then
+	echo "NO VERSION FOUND"
+   exit 1
+fi
+
 cd $path > /dev/null
 version=$( ./mage list-installed|egrep "Mage_All_Latest" | awk -F' ' '{print $2 " " $3}' )  
 cd - > /dev/null
@@ -17,5 +22,6 @@ if [[ -n $version ]]; then
 	echo "$version"
 else 
 	echo "NO VERSION FOUND"
+   exit 1
 fi
 
