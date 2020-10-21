@@ -42,10 +42,10 @@ foreach($feed->channel->item as $entry) {
                 // "published" => $published,
                 "key" => isset($matches[4]) ? $matches[4] : null,
                 "affectedVersions" => isset($affectedVersions[1]) ? $affectedVersions[1] : null,
-                // "threat" => $matches[2],
-                // "severity" => $severity[1],
+                // "threat" => isset($matches[2]) ? $matches[2] : null,
+                // "severity" => isset($severity[1]) ? $severity[1] : null,
                 // "description" => $entry->description,
-                "solution" => $solution[1],
+                "solution" => isset($solution[1]) ? $solution[1] : null,
             ];
 
             break;
@@ -96,6 +96,7 @@ do
     // a given extension key
     const check = (ext, v) => {
         const nv = normalize(v);
+    DatasetIteration:
         for (const { key, affectedVersions, solution } of dataset) {
             if (ext === key) {
                 for (const [ lb, ub ] of affectedVersions) {
@@ -105,12 +106,11 @@ Extension: ${key}
 Directory: '$ROOT'
 Solution: ${solution}
                         `);
-                        return true;
+                        continue DatasetIteration;
                     }
                 }
             }
         }
-        return false;
     }
 
     // Helper to get all extension directories
