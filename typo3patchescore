@@ -1,0 +1,94 @@
+#!/bin/bash
+
+
+# Execute the script on the remote server
+# ssh root@dev 'bash -s' < typo3patchescore
+
+
+# getLatestSecureRelease() {
+#     cat <<EOF
+# \$doc = new \DOMDocument();
+# @\$doc->loadHTMLFile("https://get.typo3.org/list/version/$1");
+
+# \$elements = \$doc->getElementsByTagName("tr");
+
+# if (!is_null(\$elements)) {
+#     foreach (\$elements as \$element) {
+#         \$nodes = \$element->childNodes;
+#         foreach (\$nodes as \$node) {
+#             if (\$node->nodeValue === "security") {
+#                 foreach (\$nodes as $node) {
+#                     if (\$node->tagName === "th" && !is_null(\$node)) {
+#                         echo trim("v\$node->nodeValue");
+#                         return;
+#                     }
+#                 }
+#             }
+#         }
+#     }
+# }
+# EOF
+# }
+
+# V9=$(getLatestSecureRelease "9")
+# echo $V9
+
+# Find the latest core versions
+# which include security updates
+SECURE_v7=$(php -r '$doc = new \DOMDocument();@$doc->loadHTMLFile("https://get.typo3.org/list/version/7");$elements = $doc->getElementsByTagName("tr");if (!is_null($elements)) {foreach ($elements as $element) {$nodes = $element->childNodes;foreach ($nodes as $node) {if ($node->nodeValue === "security") {foreach ($nodes as $node) {if ($node->tagName === "th" && !is_null($node)) {echo trim("v$node->nodeValue");return;}}}}}}')
+SECURE_v8=$(php -r '$doc = new \DOMDocument();@$doc->loadHTMLFile("https://get.typo3.org/list/version/8");$elements = $doc->getElementsByTagName("tr");if (!is_null($elements)) {foreach ($elements as $element) {$nodes = $element->childNodes;foreach ($nodes as $node) {if ($node->nodeValue === "security") {foreach ($nodes as $node) {if ($node->tagName === "th" && !is_null($node)) {echo trim("v$node->nodeValue");return;}}}}}}')
+SECURE_v9=$(php -r '$doc = new \DOMDocument();@$doc->loadHTMLFile("https://get.typo3.org/list/version/9");$elements = $doc->getElementsByTagName("tr");if (!is_null($elements)) {foreach ($elements as $element) {$nodes = $element->childNodes;foreach ($nodes as $node) {if ($node->nodeValue === "security") {foreach ($nodes as $node) {if ($node->tagName === "th" && !is_null($node)) {echo trim("v$node->nodeValue");return;}}}}}}')
+SECURE_v10=$(php -r '$doc = new \DOMDocument();@$doc->loadHTMLFile("https://get.typo3.org/list/version/10");$elements = $doc->getElementsByTagName("tr");if (!is_null($elements)) {foreach ($elements as $element) {$nodes = $element->childNodes;foreach ($nodes as $node) {if ($node->nodeValue === "security") {foreach ($nodes as $node) {if ($node->tagName === "th" && !is_null($node)) {echo trim("v$node->nodeValue");return;}}}}}}')
+
+
+# Find all PackageStates.php files on the server
+# -> works for conventual and Composer installations
+declare -a PACKAGE_STATES=()
+while IFS=  read -r -d $'\0'; do
+    PACKAGE_STATES+=("$REPLY")
+done < <(find /var/www -iname 'PackageStates.php' -print0)
+
+
+# Iterate over the
+# TYPO3 installations
+for i in "${PACKAGE_STATES[@]}"
+do
+    ROOT=$(echo $i | cut -d "/" -f1-4)
+
+    # COMPOSER
+    if [[ $i == *"public"* ]]; then
+        VERSION=$(node -e 'const cl = require("fs").readFileSync("'$ROOT'/composer.lock"); console.log(JSON.parse(cl).packages.find(x => x.name === "typo3/cms-core").version);')
+        MAJOR=$(echo $VERSION | head -c 2)
+
+    # CONVENTUAL
+    else
+        VERSION=$(ls -la $ROOT | grep "typo3_src -> ../typo3" | cut -d "/" -f 3)
+        VERSION=v${VERSION//typo3_src-/}
+        MAJOR=$(echo $VERSION | head -c 2)
+    fi
+
+
+    # Compare the version with
+    # the latest security release
+    case $MAJOR in
+    v7)
+        SECURE=$(node -e 'console.log(["'$VERSION'", "'"$SECURE_v7"'"].map(v => v.split(".").map(p => p.length === 1 ? `0${p}` : p).join(".")).reduce((a, b) => a >= b));')
+        $SECURE || echo "$ROOT, $VERSION: update to $SECURE_v7"
+        ;;
+    v8)
+        SECURE=$(node -e 'console.log(["'$VERSION'", "'"$SECURE_v8"'"].map(v => v.split(".").map(p => p.length === 1 ? `0${p}` : p).join(".")).reduce((a, b) => a >= b));')
+        $SECURE || echo "$ROOT, $VERSION: update to $SECURE_v8"
+        ;;
+    v9)
+        SECURE=$(node -e 'console.log(["'$VERSION'", "'"$SECURE_v9"'"].map(v => v.split(".").map(p => p.length === 1 ? `0${p}` : p).join(".")).reduce((a, b) => a >= b));')
+        $SECURE || echo "$ROOT, $VERSION: update to $SECURE_v9"
+        ;;
+    v1)
+        SECURE=$(node -e 'console.log(["'$VERSION'", "'"$SECURE_v10"'"].map(v => v.split(".").map(p => p.length === 1 ? `0${p}` : p).join(".")).reduce((a, b) => a >= b));')
+        $SECURE || echo "$ROOT, $VERSION: update to $SECURE_v10"
+        ;;
+    *)
+        echo "$ROOT - $VERSION: Unmatched"
+        ;;
+    esac
+done

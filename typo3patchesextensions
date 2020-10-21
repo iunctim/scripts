@@ -1,0 +1,149 @@
+#!/bin/bash
+
+
+# Execute the script on the remote server
+# ssh root@dev 'bash -s' < typo3patchesextensions
+
+
+# Retrieve and extract the
+# required data using PHP
+RAW=$(php -r '
+$content = file_get_contents("https://typo3.org/?type=101");
+$feed = new \SimpleXmlElement($content);
+
+$results = [];
+foreach($feed->channel->item as $entry) {
+    foreach($entry->category as $category) {
+        if (preg_match("/security/i", $category)) {
+            preg_match("/(.*):\s(.* in extension)\s\"(.*)\"\s\((.*)\)/siU",
+                $entry->title, $matches);
+
+            $published = trim($entry->pubDate);
+
+            preg_match("/<li>Affected Versions:\s(.*)<\/li>/iU",
+                $entry->children("content", true), $affectedVersions);
+
+            preg_match("/<li>Severity:\s(.*)<\/li>/iU",
+                $entry->children("content", true), $severity);
+
+            preg_match("/<h3>Solution<\/h3>\W<p>(.*)<\/p>/iU",
+                $entry->children("content", true), $solution);
+
+            // echo "\n--\n\n";
+            // echo "Published: $published\n";
+            // echo "Extension-Key: $matches[4]\n";
+            // echo "Affected versions: $affectedVersions[1]\n";
+            // echo "Threat: $matches[2]\n";
+            // echo "Severity: $severity[1]\n";
+            // echo "\nDescription:\n$entry->description\n";
+            // echo "\nSolution:\n$solution[1]\n";
+
+            $results[] = [
+                // "published" => $published,
+                "key" => isset($matches[4]) ? $matches[4] : null,
+                "affectedVersions" => isset($affectedVersions[1]) ? $affectedVersions[1] : null,
+                // "threat" => $matches[2],
+                // "severity" => $severity[1],
+                // "description" => $entry->description,
+                "solution" => $solution[1],
+            ];
+
+            break;
+        }
+    }
+}
+
+echo json_encode($results);
+')
+
+
+# Find all PackageStates.php files on the server
+# -> works for conventual and Composer installations
+declare -a PACKAGE_STATES=()
+while IFS=  read -r -d $'\0'; do
+    PACKAGE_STATES+=("$REPLY")
+done < <(find /var/www -iname 'PackageStates.php' -print0)
+
+
+# Work with the raw data
+# by utilizing NodeJS
+for i in "${PACKAGE_STATES[@]}"
+do
+    ROOT=$(echo $i | cut -d "/" -f1-4)
+
+    node -e '
+    const data = '"$RAW"';
+
+    // Helper to normalize the version numbers
+    const normalize = v => v.split(".").map(p => p.length === 1 ? `0${p}` : p).join(".");
+
+    // Normalize the dataset
+    const dataset = data.map(p => ({
+        key: p.key,
+        affectedVersions: p.affectedVersions
+            .replace(" and below", " >=")
+            .replace(" and ", ", ")
+            .split(",").map(r => r.trim()).map(r => {
+                if (r.includes(">=")) {
+                    return ["00.00.00", normalize(r.split(">=")[0].trim())];
+                }
+                return r.split("-").map(v => normalize(v.trim())).sort();
+            }),
+        solution: p.solution
+    }));
+
+    // Check a version of
+    // a given extension key
+    const check = (ext, v) => {
+        const nv = normalize(v);
+        for (const { key, affectedVersions, solution } of dataset) {
+            if (ext === key) {
+                for (const [ lb, ub ] of affectedVersions) {
+                    if (nv >= lb && nv <= ub) {
+                        process.stdout.write(`
+Extension: ${key}
+Directory: '$ROOT'
+Solution: ${solution}
+                        `);
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    // Helper to get all extension directories
+    // within the given ext directory
+    const { readdirSync, readFileSync } = require("fs");
+    const { join, existsSync } = require("path");
+    const getDirectories = source =>
+        readdirSync(source, { withFileTypes: true })
+            .filter(dirent => dirent.isDirectory())
+            .map(dirent => ({
+                key: dirent.name,
+                path: join(source, dirent.name, "ext_emconf.php")
+            }));
+
+    // The regular expression to extract the
+    // extension-version from the ext_emconf.php file
+    const regex = new RegExp('"/['\"]version['\"]\s?=>\s?['\"]([\d.]+)['\"]\s?,/"');
+
+    // Extract the extension-version and run
+    // the check for matching affected versions
+    getDirectories("'${i//PackageStates.php/ext}'")
+        .forEach(({ key, path }) => {
+            try {
+                const content = readFileSync(path, "utf8");
+                const groups = regex.exec(content);
+                if (groups && groups.length >= 1) check(key, groups[1]);
+            } catch(e) {
+                process.stdout.write(`
+Extension: ${key}
+Directory: '$ROOT'
+Warning: Unable to extract version from ext_emconf.php
+                `);
+            }
+        });
+    '
+done
