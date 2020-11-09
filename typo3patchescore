@@ -83,7 +83,7 @@ do
         SECURE=$(node -e 'console.log(["'$VERSION'", "'"$SECURE_v9"'"].map(v => v.split(".").map(p => p.length === 1 ? `0${p}` : p).join(".")).reduce((a, b) => a >= b));')
         $SECURE || echo "$ROOT, $VERSION: update to $SECURE_v9"
         ;;
-    v1)
+    v10)
         SECURE=$(node -e 'console.log(["'$VERSION'", "'"$SECURE_v10"'"].map(v => v.split(".").map(p => p.length === 1 ? `0${p}` : p).join(".")).reduce((a, b) => a >= b));')
         $SECURE || echo "$ROOT, $VERSION: update to $SECURE_v10"
         ;;
