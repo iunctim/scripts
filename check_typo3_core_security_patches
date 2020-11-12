@@ -85,5 +85,6 @@ if [ "$critical" = "true" ]; then
 elif [ "$unknown" = "true" ]; then
   exit $STATE_UNKNOWN
 else
+  echo "Up to date"
   exit $STATE_OK
 fi
