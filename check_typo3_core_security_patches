@@ -27,7 +27,8 @@ php -r "                                                             \
       foreach (\$nodes as \$node) {                                  \
         if (\$node->nodeValue === 'security') {                      \
           foreach (\$nodes as \$node) {                              \
-            if (\$node->tagName === 'th' && !is_null(\$node)) {      \
+            if (\$node->nodeType == XML_ELEMENT_NODE &&              \
+            \$node->tagName === 'th' && !is_null(\$node)) {          \
               echo trim(\"\$node->nodeValue\");                      \
               return;                                                \
             }                                                        \
