@@ -1,0 +1,107 @@
+#!/bin/bash
+
+STATE_OK=0
+#STATE_WARNING=1
+STATE_CRITICAL=2
+STATE_UNKNOWN=3
+#STATE_DEPENDENT=4
+
+exit_state="$STATE_OK"
+
+debug=false
+
+url='https://typo3.org/?type=101'
+
+
+explode_version() {
+  [ -z "$1" ] && { echo 0; return; }
+  v=${1// /}
+  version_string=${v%%[^0-9.]*}
+  for v in ${version_string//'.'/ }; do
+    version="$version$(printf '%03d' "$v")"
+  done
+  echo $((10#$version))
+}
+
+explode_version_ranges() {
+  while read -r range; do
+    while IFS='-' read -r a b; do
+      echo "$(explode_version "$a") - $(explode_version "$b")"
+    done <<<"$range"
+  done < <(echo "${1//,/\n}")
+}
+
+in_range() {
+  name="$1"
+  version="$(explode_version "$2")"
+  while read -r range; do
+    while IFS='-' read -r a b; do
+      if [ "$a" -le "$version" -a "$version" -le "$b" ]; then
+        echo "hit"
+      fi
+    done <<<"$range"
+  done <<< "${extensions_affected_versions["version_ranges_$name"]}"
+}
+
+
+declare -A extensions_affected_versions
+item=""
+
+while read -r item; do
+  name=$(echo "$item" | sed -n "s/.*<title>TYPO3-EXT.*&quot; (\(.*\)).*<\/title>.*/\1/p")
+  if [ -n "$name" ]; then
+    $debug && echo "=== $name ==="
+    extensions_affected_versions["versions_$name"]="$name"
+
+    version_ranges=$(echo "$item" | sed -rn "s/.*<li>Affected Versions:\s*(.*)<\/li>\s*<li>Severity.*/\1/p" | sed "s/&nbsp;/\ /")
+    $debug && echo "Version ranges: $version_ranges"
+
+    versions_ranges_sanitized=$(echo "$version_ranges" | sed -rn 's/(([0-9]{1,}\.?){3}) and below/00.00.00 - \1/pg' | sed 's/ and/,/')
+    $debug && echo "Versions ranges sanitized: $versions_ranges_sanitized"
+
+    extensions_affected_versions["version_ranges_$name"]=$(explode_version_ranges "$versions_ranges_sanitized")
+    $debug && echo "Exploded version ranges: ${extensions_affected_versions["version_ranges_$name"]}"
+  fi
+done < <(curl "$url" 2> /dev/null | tr -d '\n' | sed "s/<\/item>/\n/g")
+
+[ "${#extensions_affected_versions[@]}" -ne "0" ] || { echo "Couldn't get any entries from $url"; exit $STATE_UNKNOWN; }
+
+
+# Find all PackageStates.php files on the server
+# -> works for conventual and Composer installations
+# Then find all extension configs, get their versions and perfome the version check
+while read -r path; do
+  did_this="false"
+  $debug && echo "PackageStates.php path: $path"
+
+  while read -r ext_emconf_php; do
+    $debug && echo "ext_emconf.php: $ext_emconf_php"
+
+    ext_name=$(echo "$ext_emconf_php" | sed "s/.*\/ext\/\(.*\)\/ext_emconf.php/\1/" )
+    $debug && echo "ext name: $ext_name"
+
+    ext_version="$(/usr/bin/php -r "\$_EXTKEY = 'dummykey'; include(\"$ext_emconf_php\"); if (isset (\$EM_CONF['dummykey']['version'])) { echo \$EM_CONF['dummykey']['version']; } else { echo ''; };")"
+    $debug && echo "Ext version: $ext_version"
+
+    ext_version_exploded=$(explode_version "$ext_version")
+    $debug && echo "Ext version exploded: $ext_version_exploded"
+
+    if [ -n "${extensions_affected_versions["versions_$ext_name"]}" ]; then
+      $debug && echo "Ext name found in $url: $ext_name"
+      if [ -n "$(in_range "$ext_name" "$ext_version")" ]; then
+        $debug && echo "In range Ext name: $ext_name"
+        $debug && echo "In range Ext version: $ext_version"
+
+        [ "$did_this" == "false" ] && echo -n "${path%/typo3conf}: " || echo -n ", "
+        echo -n "$ext_name"
+        did_this="true"
+        exit_state="$STATE_CRITICAL"
+      fi
+    fi
+  done < <(find "$path/ext" -not \( -path "*LanguagePackTemplate" -prune \) -name 'ext_emconf.php')
+  [ "$did_this" == "true" ] && echo
+done < <(find /var/www -not \( -path /var/www/typo3 -prune \) -name 'PackageStates.php' -exec dirname {} \;)
+
+
+[ "$exit_state" == "$STATE_CRITICAL" ] || echo "Up to date"
+exit $exit_state
