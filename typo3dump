@@ -11,23 +11,32 @@ DOCUMENT_ROOT=$(/usr/bin/dirname "$1")
 TYPO3_DIR_NAME=$(/usr/bin/basename "$1")
 TYPO3_CONF_DIR=$1"typo3conf"
 
-# Set and check for typo3conf directory
+# Check for typo3conf directory
 if [ ! -d "$TYPO3_CONF_DIR" ]; then
     echo "This is not a typo3 instance"
     exit
 fi
 
 # Set and check the LocalConfiguration.php file
-CONFIG=$TYPO3_CONF_DIR"/LocalConfiguration.php"
-if [ ! -f "$CONFIG" ]; then
-    echo "LocalConfiguration.php does not exist"
+CONFIG=$(readlink -e $TYPO3_CONF_DIR/{LocalConfiguration,localconf}.php | head -1)
+if [ -z "$CONFIG" ]; then
+    echo "Couldn't find neither LocalConfiguration.php nor localconf.php"
     exit
-# TODO elif [ -f $TYPO3_CONF_DIR/localconf.php ]; then
-#     check for TYPO3 4.5 config format
 fi
 
 # Get the database name from LocalConfiguration.php
-DATABASE=$(/usr/bin/php -r "\$config=include(\"$CONFIG\"); if (isset (\$config['DB']['database'])) { echo \$config['DB']['database']; } else { echo \$config['DB']['Connections']['Default']['dbname']; }")
+DATABASE=$(/usr/bin/php -r "\$config=include(\"$CONFIG\");                      \
+    if (isset (\$config['DB']['database'])) {                                   \
+        echo \$config['DB']['database'];                                        \
+    } elseif (isset (\$config['DB']['Connections']['Default']['dbname'])) {     \
+        echo \$config['DB']['Connections']['Default']['dbname'];                \
+    } elseif (isset (\$typo_db)) {                                              \
+        echo \$typo_db;                                                         \
+    } else {                                                                    \
+        echo \"Couldn't find the DB name in $CONFIG\";                          \
+    }                                                                           \
+")
+
 # TODO: check for empty database name and check if database exists in mysql
 # Tables to exclude
 EXCLUDES=('cache_pages' 'cache_extensions' 'cache_hash' 'link_cache' 'cache_typo3temp_log' 'cache_imagesizes' 'cache_md5params' 'cache_pages' 'cache_pagesection' 'cache_treelist' 'cachingframework_cache_hash'
