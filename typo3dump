@@ -62,8 +62,7 @@ done
 /usr/bin/mysqldump --defaults-file=/etc/mysql/debian.cnf $DATABASE -nt $IGNORES >> "$1$DATABASE.sql"
 
 # Make the tar ball
-# TODO: exclude typo3conf/temp_* (for TYPO3 4.5 installations)
-/bin/tar cvfp $TAR_NAME -C $DOCUMENT_ROOT $TYPO3_DIR_NAME --exclude typo3temp --exclude */_processed_ --exclude typo3conf/*.log
+/bin/tar cvfp $TAR_NAME -C $DOCUMENT_ROOT $TYPO3_DIR_NAME --exclude typo3temp --exclude */_processed_ --exclude typo3conf/*.log --exclude typo3conf/temp_*
 
 # Gzip tar ball
 /bin/gzip -f $TAR_NAME
