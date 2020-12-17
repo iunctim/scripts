@@ -24,7 +24,7 @@ if [ -z "$CONFIG" ]; then
     exit
 fi
 
-# Get the database name from LocalConfiguration.php
+# Get the database name
 DATABASE=$(/usr/bin/php -r "\$config=include(\"$CONFIG\");                      \
     if (isset (\$config['DB']['database'])) {                                   \
         echo \$config['DB']['database'];                                        \
@@ -32,6 +32,18 @@ DATABASE=$(/usr/bin/php -r "\$config=include(\"$CONFIG\");                      
         echo \$config['DB']['Connections']['Default']['dbname'];                \
     } elseif (isset (\$typo_db)) {                                              \
         echo \$typo_db;                                                         \
+    } else {                                                                    \
+        echo \"Couldn't find the DB name in $CONFIG\";                          \
+    }                                                                           \
+")
+# Get the database user
+DB_USER=$(/usr/bin/php -r "\$config=include(\"$CONFIG\");                       \
+    if (isset (\$config['DB']['username'])) {                                   \
+        echo \$config['DB']['username'];                                        \
+    } elseif (isset (\$config['DB']['Connections']['Default']['user'])) {       \
+        echo \$config['DB']['Connections']['Default']['user'];                  \
+    } elseif (isset (\$typo_db_username)) {                                     \
+        echo \$typo_db_username;                                                \
     } else {                                                                    \
         echo \"Couldn't find the DB name in $CONFIG\";                          \
     }                                                                           \
@@ -66,3 +78,12 @@ done
 
 # Gzip tar ball
 /bin/gzip -f $TAR_NAME
+
+
+echo "All user for database $DATABASE:"
+mysql --defaults-file=/etc/mysql/debian.cnf -e "select user,host,db from mysql.db where db='$DATABASE';"
+echo "All grants for user $DB_USER:"
+mysql --defaults-file=/etc/mysql/debian.cnf -e "show grants for '$DB_USER'@'localhost';"
+echo "You may wont to drop the database user and database"
+echo "DROP USER '$DB_USER'@'localhost';"
+echo "DROP DATABASE $DATABASE;"
