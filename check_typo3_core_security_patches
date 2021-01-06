@@ -42,6 +42,11 @@ php -r "                                                             \
 }
 
 is_upgratable() {
+
+  # Ignore ELTS version
+  ver="${latest_secure_versions[$installed_major_version]}"
+  curl -s "https://get.typo3.org/$ver" | grep "^ELTS version.*elts$" > /dev/null && return 1
+
   lsv=$(echo "${latest_secure_versions[$installed_major_version]}" | awk -F"." '{printf "%d%03d%03d", $1,$2,$3}')
   iv=$(echo "$installed_version" | awk -F"." '{printf "%d%03d%03d", $1,$2,$3}')
 
