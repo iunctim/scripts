@@ -9,7 +9,7 @@ fi
 TAR_NAME=/root/$(/usr/bin/basename "$1").tar
 DOCUMENT_ROOT=$(/usr/bin/dirname "$1")
 TYPO3_DIR_NAME=$(/usr/bin/basename "$1")
-TYPO3_CONF_DIR=$1"typo3conf"
+TYPO3_CONF_DIR=$(readlink -e "${1}typo3conf" || readlink -e "${1}public/typo3conf")
 
 # Check for typo3conf directory
 if [ ! -d "$TYPO3_CONF_DIR" ]; then
